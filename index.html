@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Catatan Keuangan Cloud</title>
+    
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Firebase SDK (Modular) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB7ROB_ysdDp2MS6v45_M2-Cq7SLGChcGU",
+            authDomain: "keuangandedy.firebaseapp.com",
+            projectId: "keuangandedy",
+            storageBucket: "keuangandedy.firebasestorage.app",
+            messagingSenderId: "377575015545",
+            appId: "1:377575015545:web:00627cdd7c620a309b40a8",
+            measurementId: "G-W9C4HNR2RS"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.db = db;
+        window.doc = doc;
+        window.getDoc = getDoc;
+        window.setDoc = setDoc;
+
+        window.onloadPasswordCloud();
+    </script>
+</head>
+<body>
+
+    <!-- HALAMAN LOGIN -->
+    <div id="loginPage" class="container login-container">
+        <div class="card login-card-box">
+            <div class="login-brand">⚓ MY ASET</div>
+            <h2>LOGIN KEANGAN</h2>
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Masukkan username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Masukkan password">
+            </div>
+            <div id="errorMsg" class="error-msg">Username atau password salah!</div>
+            <button onclick="prosesLogin()" style="margin-top: 15px;">Masuk ke Aplikasi</button>
+        </div>
+    </div>
+
+    <!-- HALAMAN UTAMA APLIKASI KEUANGAN -->
+    <div id="appPage" class="container hidden" style="display: none;">
+        <header class="app-header">
+            <h1>CATATAN KEUANGAN SELAMA BEKERJA DI MALAYSIA</h1>
+            <p class="subtitle-kurs">Kurs manual & sinkronisasi </p>
+        </header>
+
+        <!-- PEMUTAR LAGU LATAR ONE PIECE -->
+        <div class="card music-card">
+            <div class="music-info">
+                <span class="music-icon">🎵</span>
+                <div>
+                    <h3>Musik Petualangan One Piece</h3>
+                    <p>Temani pencatatan keuangan Anda</p>
+                </div>
+            </div>
+            <audio id="bgMusic" loop>
+                <source src="onepiece.mp3" type="audio/mpeg">
+                Browser Anda tidak mendukung pemutar audio.
+            </audio>
+            <button onclick="togglePlayMusic()" id="btnMusic" class="btn-music-play">▶ Putar Musik</button>
+        </div>
+
+        <div class="card">
+            <h2>💰 Pengaturan Aset & Pemasukan</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="saldoAwal">Saldo Awal / Uang Cash / Harta Lama (IDR)</label>
+                    <input type="text" id="saldoAwal" placeholder="Contoh: 10.000.000" oninput="formatInputAngka(this); hitungKeuangan()">
+                </div>
+                <div class="form-group">
+                    <label for="kurs">Kurs Hari Ini (1 MYR ke IDR)</label>
+                    <input type="text" id="kurs" value="3.600" oninput="formatInputAngka(this); hitungKeuangan()">
+                </div>
+                <div class="form-group">
+                    <label for="gaji">Gaji Pokok Bulanan (MYR)</label>
+                    <input type="text" id="gaji" placeholder="Contoh: 3.000" oninput="formatInputAngka(this); hitungKeuangan()">
+                </div>
+                <div class="form-group">
+                    <label for="bonus">Bonus Bulanan (MYR)</label>
+                    <input type="text" id="bonus" placeholder="Contoh: 500" oninput="formatInputAngka(this); hitungKeuangan()">
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🛒  Pengeluaran Bulan Ini (Opsional)</h2>
+            <div class="form-grid-4">
+                <div class="form-group">
+                    <label for="tanggalPengeluaran">Tanggal</label>
+                    <input type="date" id="tanggalPengeluaran">
+                </div>
+                <div class="form-group">
+                    <label for="namaPengeluaran">Nama Pengeluaran</label>
+                    <input type="text" id="namaPengeluaran" placeholder="Contoh: Sewa Rumah">
+                </div>
+                <div class="form-group">
+                    <label for="mataUang">Mata Uang</label>
+                    <select id="mataUang">
+                        <option value="MYR">Ringgit (MYR)</option>
+                        <option value="IDR">Rupiah (IDR)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="jumlahPengeluaran">Nominal</label>
+                    <input type="text" id="jumlahPengeluaran" placeholder="Contoh: 500" oninput="formatInputAngka(this)">
+                </div>
+            </div>
+            <button type="button" onclick="tambahPengeluaran()" class="btn-secondary-custom">+ Tambah ke Daftar Pengeluaran</button>
+        </div>
+
+        <div class="card">
+            <h2>📊 Ringkasan Keuangan & Akumulasi Keseluruhan</h2>
+            <div class="summary-grid">
+                <div class="summary-box">
+                    <h3>Pendapatan Bulan Ini</h3>
+                    <p id="totalPendapatan">Rp 0</p>
+                </div>
+                <div class="summary-box danger">
+                    <h3>Pengeluaran Bulan Ini</h3>
+                    <p id="totalPengeluaran">Rp 0</p>
+                </div>
+                <div class="summary-box success" id="boxSaldo">
+                    <h3>Sisa Saldo Bulan Ini</h3>
+                    <p id="sisaSaldo">Rp 0</p>
+                </div>
+                <div class="summary-box info">
+                    <h3> TOTAL TABUNGAN BERSIH  / Harta</h3>
+                    <p id="totalTabunganPermanen">Rp 0</p>
+                </div>
+                <div class="summary-box warning">
+                    <h3>Akumulasi Total Gaji Pokok</h3>
+                    <p id="akumulasiGaji">Rp 0</p>
+                </div>
+                <div class="summary-box warning">
+                    <h3>Akumulasi Total Bonus</h3>
+                    <p id="akumulasiBonus">Rp 0</p>
+                </div>
+                <div class="summary-box danger">
+                    <h3> total pengeluaran setiap bulan  (IDR)</h3>
+                    <p id="akumulasiPengeluaran">Rp 0</p>
+                </div>
+                <div class="summary-box purple">
+                    <h3>Akumulasi Pemakaian Ringgit (MYR)</h3>
+                    <p id="akumulasiPengeluaranMYR">RM 0.00</p>
+                </div>
+            </div>
+
+            <h3 class="section-sub-title">Daftar Pengeluaran Bulan Ini</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Keterangan</th>
+                            <th>Jumlah Asli</th>
+                            <th>Jumlah (IDR)</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelPengeluaran">
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #6b7280;">Tidak ada pengeluaran bulan ini (Aman).</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- TABEL RIWAYAT PEMASUKAN & KURS CLOUD -->
+            <h3 class="section-sub-title" style="margin-top: 35px;">📜 Riwayat Pemasukan & Kurs (Cloud)</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Bulan / Sesi Simpan</th>
+                            <th>Kurs</th>
+                            <th>Gaji (MYR)</th>
+                            <th>Bonus (MYR)</th>
+                            <th>Total Pendapatan (IDR)</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelRiwayatPemasukanCloud">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #6b7280;">Memuat riwayat pemasukan...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- TABEL RIWAYAT PENGELUARAN PERMANEN CLOUD -->
+            <h3 class="section-sub-title" style="margin-top: 35px;">📦 Riwayat Pengeluaran Permanen (Cloud)</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Keterangan</th>
+                            <th>Jumlah Asli</th>
+                            <th>Jumlah (IDR)</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelRiwayatCloud">
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #6b7280;">Memuat riwayat pengeluaran...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="action-row">
+                <button onclick="simpanBulanIni()" class="btn-success-custom">💾 Simpan & Sinkronkan ke Cloud</button>
+                <button onclick="gantiPassword()" class="btn-primary-custom">🔑 Ganti Password</button>
+                <button onclick="resetDataPermanen()" class="btn-neutral-custom">🔄 Reset Cloud</button>
+                <button onclick="logout()" class="btn-danger-custom">🚪 Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const USER_DEFAULT = "dedy";
+        let passwordAktif = "12345"; 
+
+        let listPengeluaran = [];
+        let listRiwayatCloud = []; 
+        let listRiwayatPemasukanCloud = []; 
+        let saldoAwalIDR = 0;
+        let akumulasiTabungan = 0;
+        let akumulasiGajiIDR = 0;
+        let akumulasiBonusIDR = 0;
+        let akumulasiPengeluaranIDR = 0;
+        let akumulasiPengeluaranMYR = 0;
+
+        document.getElementById('tanggalPengeluaran').valueAsDate = new Date();
+
+        function formatRupiah(angka) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+        }
+
+        function formatRinggit(angka) {
+            return new Intl.NumberFormat('ms-MY', { style: 'currency', currency: 'MYR', minimumFractionDigits: 2 }).format(angka);
+        }
+
+        function formatInputAngka(input) {
+            let value = input.value.replace(/\D/g, '');
+            if (value !== '') {
+                input.value = new Intl.NumberFormat('id-ID').format(value);
+            } else {
+                input.value = '';
+            }
+        }
+
+        function parseAngka(id) {
+            let val = document.getElementById(id).value;
+            if (!val) return 0;
+            return parseFloat(val.replace(/\./g, '')) || 0;
+        }
+
+        function togglePlayMusic() {
+            const music = document.getElementById('bgMusic');
+            const btn = document.getElementById('btnMusic');
+            
+            if (music.paused) {
+                music.play();
+                btn.innerText = "⏸ Jeda Musik";
+                btn.style.background = "linear-gradient(135deg, #ef4444, #dc2626)";
+            } else {
+                music.pause();
+                btn.innerText = "▶ Putar Musik";
+                btn.style.background = "linear-gradient(135deg, #10b981, #059669)";
+            }
+        }
+
+        async function onloadPasswordCloud() {
+            try {
+                if (!window.db) return;
+                const docRef = window.doc(window.db, "keuangan", "data_user");
+                const docSnap = await window.getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.passwordCustom) passwordAktif = data.passwordCustom;
+                }
+            } catch (e) {
+                console.log("Gagal memuat password dari cloud:", e);
+            }
+        }
+
+        async function onloadDataCloud() {
+            try {
+                if (!window.db) return;
+                const docRef = window.doc(window.db, "keuangan", "data_user");
+                const docSnap = await window.getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    saldoAwalIDR = data.saldoAwal || 0;
+                    akumulasiTabungan = data.tabungan || 0;
+                    akumulasiGajiIDR = data.gaji || 0;
+                    akumulasiBonusIDR = data.bonus || 0;
+                    akumulasiPengeluaranIDR = data.pengeluaran || 0;
+                    akumulasiPengeluaranMYR = data.pengeluaranMYR || 0;
+                    listRiwayatCloud = data.riwayatPengeluaran || [];
+                    listRiwayatPemasukanCloud = data.riwayatPemasukan || [];
+                    if (data.passwordCustom) passwordAktif = data.passwordCustom;
+
+                    if (saldoAwalIDR > 0) {
+                        document.getElementById('saldoAwal').value = new Intl.NumberFormat('id-ID').format(saldoAwalIDR);
+                    }
+                    hitungKeuangan();
+                    tampilkanRiwayatCloud();
+                    tampilkanRiwayatPemasukanCloud();
+                }
+            } catch (e) {
+                console.log("Gagal memuat data cloud:", e);
+            }
+        }
+
+        async function simpanKeCloud() {
+            try {
+                const docRef = window.doc(window.db, "keuangan", "data_user");
+                await window.setDoc(docRef, {
+                    saldoAwal: saldoAwalIDR,
+                    tabungan: akumulasiTabungan,
+                    gaji: akumulasiGajiIDR,
+                    bonus: akumulasiBonusIDR,
+                    pengeluaran: akumulasiPengeluaranIDR,
+                    pengeluaranMYR: akumulasiPengeluaranMYR,
+                    riwayatPengeluaran: listRiwayatCloud,
+                    riwayatPemasukan: listRiwayatPemasukanCloud,
+                    passwordCustom: passwordAktif
+                }, { merge: true });
+            } catch (e) {
+                alert("Gagal menyimpan ke cloud: " + e.message);
+            }
+        }
+
+        function prosesLogin() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const err = document.getElementById('errorMsg');
+
+            if (u === USER_DEFAULT && p === passwordAktif) {
+                document.getElementById('loginPage').classList.add('hidden');
+                const appPage = document.getElementById('appPage');
+                appPage.classList.remove('hidden');
+                appPage.style.display = 'block';
+                onloadDataCloud();
+            } else {
+                err.style.display = 'block';
+            }
+        }
+
+        function logout() {
+            const appPage = document.getElementById('appPage');
+            appPage.style.display = 'none';
+            appPage.classList.add('hidden');
+            document.getElementById('loginPage').classList.remove('hidden');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('errorMsg').style.display = 'none';
+        }
+
+        async function gantiPassword() {
+            const passwordLama = prompt("Masukkan Password Lama Anda:");
+            if (passwordLama === null) return;
+
+            if (passwordLama !== passwordAktif) {
+                alert("Password lama yang Anda masukkan salah!");
+                return;
+            }
+
+            const passwordBaru = prompt("Masukkan Password Baru:");
+            if (passwordBaru === null || passwordBaru.trim() === "") return;
+
+            const konfirmasiPasswordBaru = prompt("Konfirmasi Password Baru (ketik ulang):");
+            if (passwordBaru !== konfirmasiPasswordBaru) {
+                alert("Konfirmasi password baru tidak cocok.");
+                return;
+            }
+
+            passwordAktif = passwordBaru;
+            await simpanKeCloud();
+            alert("Password berhasil diubah dan disimpan secara aman ke Cloud!");
+        }
+
+        function tambahPengeluaran() {
+            const tanggal = document.getElementById('tanggalPengeluaran').value;
+            const nama = document.getElementById('namaPengeluaran').value;
+            const mataUang = document.getElementById('mataUang').value;
+            let jumlah = parseAngka('jumlahPengeluaran');
+            const kurs = parseAngka('kurs');
+
+            if (!nama && jumlah <= 0) {
+                return;
+            }
+
+            let jumlahIDR = jumlah;
+            let jumlahMYR = 0;
+
+            if (mataUang === 'MYR') {
+                jumlahMYR = jumlah; 
+                jumlahIDR = jumlah * kurs;
+            }
+
+            listPengeluaran.push({ 
+                id: Date.now(), 
+                tanggal: tanggal, 
+                nama: nama, 
+                mataUang: mataUang,
+                jumlahAsli: jumlah,
+                jumlahIDR: jumlahIDR,
+                jumlahMYR: jumlahMYR 
+            });
+
+            document.getElementById('namaPengeluaran').value = '';
+            document.getElementById('jumlahPengeluaran').value = '';
+            hitungKeuangan();
+        }
+
+        function hapusPengeluaran(id) {
+            listPengeluaran = listPengeluaran.filter(item => item.id !== id);
+            hitungKeuangan();
+        }
+
+        async function hapusRiwayatCloud(id) {
+            if (!confirm("Yakin ingin menghapus item ini dari riwayat pengeluaran cloud?")) return;
+            listRiwayatCloud = listRiwayatCloud.filter(item => item.id !== id);
+            tampilkanRiwayatCloud();
+            await simpanKeCloud();
+        }
+
+        async function hapusRiwayatPemasukanCloud(id) {
+            if (!confirm("Yakin ingin menghapus riwayat pemasukan ini dari cloud?")) return;
+            listRiwayatPemasukanCloud = listRiwayatPemasukanCloud.filter(item => item.id !== id);
+            tampilkanRiwayatPemasukanCloud();
+            await simpanKeCloud();
+        }
+
+        function tampilkanRiwayatCloud() {
+            const tbody = document.getElementById('tabelRiwayatCloud');
+            tbody.innerHTML = '';
+
+            if (listRiwayatCloud.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #6b7280;">Belum ada riwayat pengeluaran tersimpan di cloud.</td></tr>`;
+                return;
+            }
+
+            listRiwayatCloud.forEach(item => {
+                const tr = document.createElement('tr');
+                let teksJumlahAsli = item.mataUang === 'MYR' ? formatRinggit(item.jumlahAsli) : formatRupiah(item.jumlahAsli);
+                tr.innerHTML = `
+                    <td>${item.tanggal}</td>
+                    <td>${item.nama}</td>
+                    <td>${teksJumlahAsli}</td>
+                    <td>${formatRupiah(item.jumlahIDR)}</td>
+                    <td><button class="btn-delete" onclick="hapusRiwayatCloud(${item.id})">Hapus</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function tampilkanRiwayatPemasukanCloud() {
+            const tbody = document.getElementById('tabelRiwayatPemasukanCloud');
+            tbody.innerHTML = '';
+
+            if (listRiwayatPemasukanCloud.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6b7280;">Belum ada riwayat pemasukan tersimpan di cloud.</td></tr>`;
+                return;
+            }
+
+            listRiwayatPemasukanCloud.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.waktuSimpan}</td>
+                    <td>Rp ${item.kurs.toLocaleString('id-ID')}</td>
+                    <td>${formatRinggit(item.gajiMYR)}</td>
+                    <td>${formatRinggit(item.bonusMYR)}</td>
+                    <td>${formatRupiah(item.totalPendapatanIDR)}</td>
+                    <td><button class="btn-delete" onclick="hapusRiwayatPemasukanCloud(${item.id})">Hapus</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function hitungKeuangan() {
+            saldoAwalIDR = parseAngka('saldoAwal');
+            const kurs = parseAngka('kurs');
+            const gajiMYR = parseAngka('gaji');
+            const bonusMYR = parseAngka('bonus');
+            
+            const gajiIDR = gajiMYR * kurs;
+            const bonusIDR = bonusMYR * kurs;
+            const totalPendapatanIDR = gajiIDR + bonusIDR;
+
+            const totalPengeluaranIDR = listPengeluaran.length > 0 ? listPengeluaran.reduce((sum, item) => sum + item.jumlahIDR, 0) : 0;
+            const sisaSaldoIDR = totalPendapatanIDR - totalPengeluaranIDR;
+
+            document.getElementById('totalPendapatan').innerText = formatRupiah(totalPendapatanIDR);
+            document.getElementById('totalPengeluaran').innerText = formatRupiah(totalPengeluaranIDR);
+            document.getElementById('sisaSaldo').innerText = formatRupiah(sisaSaldoIDR);
+
+            const totalKeseluruhanTabungan = saldoAwalIDR + akumulasiTabungan;
+
+            document.getElementById('totalTabunganPermanen').innerText = formatRupiah(totalKeseluruhanTabungan);
+            document.getElementById('akumulasiGaji').innerText = formatRupiah(akumulasiGajiIDR);
+            document.getElementById('akumulasiBonus').innerText = formatRupiah(akumulasiBonusIDR);
+            document.getElementById('akumulasiPengeluaran').innerText = formatRupiah(akumulasiPengeluaranIDR);
+            document.getElementById('akumulasiPengeluaranMYR').innerText = formatRinggit(akumulasiPengeluaranMYR);
+
+            const boxSaldo = document.getElementById('boxSaldo');
+            if (sisaSaldoIDR < 0) {
+                boxSaldo.className = "summary-box danger";
+            } else {
+                boxSaldo.className = "summary-box success";
+            }
+
+            const tbody = document.getElementById('tabelPengeluaran');
+            tbody.innerHTML = '';
+
+            if (listPengeluaran.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #6b7280;">Tidak ada pengeluaran bulan ini (Aman).</td></tr>`;
+                return;
+            }
+
+            listPengeluaran.forEach(item => {
+                const tr = document.createElement('tr');
+                let teksJumlahAsli = item.mataUang === 'MYR' ? formatRinggit(item.jumlahAsli) : formatRupiah(item.jumlahAsli);
+                tr.innerHTML = `
+                    <td>${item.tanggal}</td>
+                    <td>${item.nama}</td>
+                    <td>${teksJumlahAsli}</td>
+                    <td>${formatRupiah(item.jumlahIDR)}</td>
+                    <td><button class="btn-delete" onclick="hapusPengeluaran(${item.id})">Hapus</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function simpanBulanIni() {
+            const kurs = parseAngka('kurs');
+            const gajiMYR = parseAngka('gaji');
+            const bonusMYR = parseAngka('bonus');
+
+            if (gajiMYR <= 0 && bonusMYR <= 0 && saldoAwalIDR <= 0 && listPengeluaran.length === 0) {
+                alert('Silakan isi data keuangan terlebih dahulu!');
+                return;
+            }
+
+            const confirmSave = confirm("Apakah Anda ingin menyimpan pendapatan & pengeluaran bulan ini ke riwayat cloud?");
+            if (!confirmSave) return;
+
+            const gajiIDR = gajiMYR * kurs;
+            const bonusIDR = bonusMYR * kurs;
+            const totalPendapatanIDR = gajiIDR + bonusIDR;
+
+            const totalPengeluaranIDR = listPengeluaran.length > 0 ? listPengeluaran.reduce((sum, item) => sum + item.jumlahIDR, 0) : 0;
+            const totalPengeluaranBulanMYR = listPengeluaran.length > 0 ? listPengeluaran.reduce((sum, item) => sum + item.jumlahMYR, 0) : 0;
+            
+            const sisaSaldoIDR = totalPendapatanIDR - totalPengeluaranIDR;
+
+            akumulasiTabungan += sisaSaldoIDR;
+            akumulasiGajiIDR += gajiIDR;
+            akumulasiBonusIDR += bonusIDR;
+            akumulasiPengeluaranIDR += totalPengeluaranIDR;
+            akumulasiPengeluaranMYR += totalPengeluaranBulanMYR; 
+
+            const tanggalSimpan = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+            
+            if (gajiMYR > 0 || bonusMYR > 0 || totalPendapatanIDR > 0) {
+                listRiwayatPemasukanCloud.push({
+                    id: Date.now(),
+                    waktuSimpan: tanggalSimpan,
+                    kurs: kurs,
+                    gajiMYR: gajiMYR,
+                    bonusMYR: bonusMYR,
+                    totalPendapatanIDR: totalPendapatanIDR
+                });
+            }
+
+            if (listPengeluaran.length > 0) {
+                listRiwayatCloud.push(...listPengeluaran);
+            }
+            
+            await simpanKeCloud();
+
+            alert('Data berhasil disinkronkan ke Cloud!');
+            listPengeluaran = [];
+            document.getElementById('gaji').value = '';
+            document.getElementById('bonus').value = '';
+            
+            hitungKeuangan();
+            tampilkanRiwayatCloud();
+            tampilkanRiwayatPemasukanCloud();
+        }
+
+        async function resetDataPermanen() {
+            const konfirmasiPassword = prompt("PERINGATAN KERAS!\n\nSemua data akumulasi & seluruh riwayat di Cloud akan direset permanen!\n\nMasukkan password Anda untuk melanjutkan:");
+            
+            if (konfirmasiPassword === passwordAktif) {
+                if (confirm('ANDA YAKIN? Data tidak bisa dikembalikan setelah direset.')) {
+                    saldoAwalIDR = 0;
+                    akumulasiTabungan = 0;
+                    akumulasiGajiIDR = 0;
+                    akumulasiBonusIDR = 0;
+                    akumulasiPengeluaranIDR = 0;
+                    akumulasiPengeluaranMYR = 0;
+                    listRiwayatCloud = [];
+                    listRiwayatPemasukanCloud = [];
+                    
+                    document.getElementById('saldoAwal').value = '';
+                    await simpanKeCloud();
+                    hitungKeuangan();
+                    tampilkanRiwayatCloud();
+                    tampilkanRiwayatPemasukanCloud();
+                    alert('Data cloud berhasil direset.');
+                }
+            } else if (konfirmasiPassword !== null) {
+                alert('Password salah! Proses reset dibatalkan.');
+            }
+        }
+    </script>
+</body>
+</html>
